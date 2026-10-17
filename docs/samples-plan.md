@@ -63,7 +63,6 @@ The existing samples were built with the Rive CLI (RML, plus Luau for the script
 | Tile driven by other tiles | MagicRitualCircle |
 | Ambient scene dressing | **torch / brazier** |
 | Token | ResponsiveToken, RatSwarm |
-| Token overlay on a normal image token | **condition ring** (needs the overlay spike below) |
 | Journal set piece flashed to players | AnimatedScroll; **door** |
 | GM-driven tracker (journal or tile) | **progress clock** |
 | Text binding | **sign / banner**; AnimatedScroll |
@@ -81,21 +80,13 @@ Chosen (2026-10-17), in build order:
 6. **Door, as a journal set piece** rather than a scene tile, since doors are hard to show top-down. `state:enum` (closed/open/locked), `knock`/`rattle` triggers; the GM shows the page to players, like the scroll.
 
 Not now:
-- **Spell aura:** a tile works, but attaching one to a token conveniently needs active effects, which are system-specific. Revisit once the overlay mode exists: an overlay bound to a condition (`status:<id>`) could show an aura without any system code.
-
-### Spike: Rive overlays on image tokens (for the condition ring)
-
-Today a Rive token replaces the token's image. A condition ring needs an **overlay mode**: the token keeps its normal image, and the Rive file (transparent in the middle) draws on top, optionally a little larger than the token. Foundry draws a token in two places, which gives two ways to do it:
-
-- **A. In the interface group,** as a child of the token next to its condition icons and bars. Simple, always above the token, hidden with it; but also above roofs and weather, like the condition icons.
-- **B. In the primary group,** as a second sprite sorted just above the token's image. Correct depth with tiles, roofs and elevation, but more work to keep in step with the token (size, rotation, elevation, visibility).
-
-The spike: build both against a placeholder ring, check them with core dynamic rings off and on, hidden and invisible tokens, elevation and roofs, and the cost per token. Then decide whether the condition ring is worth making. The overlay mode would also be the way to do auras later.
+- **Condition ring and other token overlays:** out of scope for the module for now (decided 2026-10-17 after the overlay spike). The spike works, but both ways of drawing over an image token reach into Foundry's token rendering in ways with real risks. Findings and risks: `spikes/token-overlay-findings.md` on the `spike/token-overlay` branch, kept for reference and not to be merged.
+- **Spell aura:** attaching one to a token would need either active effects (system-specific) or the token overlays above.
 
 ## Build steps
 
 1. **Samples folder:** add `samples/` to the module with the chosen `.riv` files (signed builds of the `samples_src/` projects), and add `samples` to the release zip.
-   - Verify the server serves `.riv` from module folders. Uploads of `.riv` were refused earlier, but serving should be fine; if it isn't, ship `.riv.json` wrappers instead.
+   - Verified during the overlay spike: the server serves `.riv` from module folders (status 200), so the samples ship as plain `.riv` files.
 2. **Pack sources and build:**
    - Keep pack contents as JSON in the repo (`packs-src/<pack>/*.json`), so they're reviewable and diffable.
    - Compile them to v12 LevelDB folders in the release workflow with Foundry's CLI (`@foundryvtt/foundryvtt-cli`, `fvtt package pack`), and add `packs/` to the zip.
@@ -120,8 +111,7 @@ The spike: build both against a placeholder ring, check them with core dynamic r
 
 Made (2026-10-17):
 - Build the progress clock, torch/brazier, sign/banner and treasure chest; the lever/pressure plate with a target tile; the door as a journal set piece.
-- Condition ring: only after the overlay spike shows image tokens and Rive overlays work well together.
-- Spell aura: not now.
+- Condition ring, token overlays and spell aura: not now (see above).
 
 Still open:
 1. Commit `samples_src/` to the repo? (I'd say yes, without `build/`; the large generated `scene.rml` files are fine in git.)
