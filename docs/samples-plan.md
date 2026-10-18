@@ -72,7 +72,7 @@ The existing samples were built with the Rive CLI (RML, plus Luau for the script
 
 Chosen (2026-10-17), in build order:
 
-1. **Progress clock** (Blades-style). `segments:number` (4/6/8), `filled:number`, `color:color`, `label:string`, `tick` trigger with a pop. Works as a journal page (GM drives it live) or a tile. No script needed.
+1. **Progress clock** (Blades-style). **Source done** (`samples_src/ProgressClock`, 2026-10-17): `segments:number` (any count), `filled:number` (the fill sweeps, the clock pops), `color:color`, `label:string`, `tick` trigger. No scripts, so the local build runs unsigned; checked in the 2.44.2 runtime. Still to do: ship the `.riv` in `samples/` and try it on the server as a journal page and a tile.
 2. **Torch / brazier.** `lit:boolean`, `intensity:number`, flicker loop; a long brazier uses the Layout fit.
 3. **Sign / banner.** `text:string`, `color:color`, Layout fit. Demo: a tavern sign whose text is bound to data.
 4. **Treasure chest.** `state:enum` (closed/open/empty), `open` trigger with sparkle; MATT reward beat.
@@ -112,10 +112,10 @@ Not now:
 Made (2026-10-17):
 - Build the progress clock, torch/brazier, sign/banner and treasure chest; the lever/pressure plate with a target tile; the door as a journal set piece.
 - Condition ring, token overlays and spell aura: not now (see above).
+- `samples_src/` is committed (without `build/`), so the samples' sources are public. Not part of the module zip.
 
 Still open:
-1. Commit `samples_src/` to the repo? (I'd say yes, without `build/`; the large generated `scene.rml` files are fine in git.)
-2. Licence for the sample files (the scroll's font is OFL; note that in the samples' credits).
-3. Adventure (one-click demo) or separate packs only. I'd do both.
-4. Demo without MATT: just say "install MATT for the trap and plates", or also add a MATT-free path (GM buttons in the journal)?
-5. Pack names ("Rive Samples", "Rive Macros", "Rive for Foundry demo").
+1. Licence for the sample files (the scroll's font is OFL; note that in the samples' credits).
+2. Adventure (one-click demo) or separate packs only. I'd do both.
+3. Demo without MATT: just say "install MATT for the trap and plates", or also add a MATT-free path (GM buttons in the journal)?
+4. Pack names ("Rive Samples", "Rive Macros", "Rive for Foundry demo").
