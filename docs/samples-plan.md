@@ -73,7 +73,7 @@ The existing samples were built with the Rive CLI (RML, plus Luau for the script
 Chosen (2026-10-17), in build order:
 
 1. **Progress clock** (Blades-style). **Source done** (`samples_src/ProgressClock`, 2026-10-17): `segments:number` (any count), `filled:number` (the fill sweeps, the clock pops), `color:color`, `label:string`, `tick` trigger. No scripts, so the local build runs unsigned; checked in the 2.44.2 runtime. Still to do: ship the `.riv` in `samples/` and try it on the server as a journal page and a tile.
-2. **Torch / brazier.** `lit:boolean`, `intensity:number`, flicker loop; a long brazier uses the Layout fit.
+2. **Torch / brazier.** **Source done** (`samples_src/Brazier`, 2026-10-17): three top-down artboards (`Brazier`, a wall `Torch`, and a `Trough` for the Layout fit) sharing `lit:boolean` (eased fade, embers stay), `intensity:number` (0–1.5), `color:color` and a `flare` trigger. No scripts; checked in the 2.44.2 runtime. Still to do: ship the `.riv` and try it on the server.
 3. **Sign / banner.** `text:string`, `color:color`, Layout fit. Demo: a tavern sign whose text is bound to data.
 4. **Treasure chest.** `state:enum` (closed/open/empty), `open` trigger with sparkle; MATT reward beat.
 5. **Lever / pressure plate + target.** Same arrangement as the ritual circle: the plate (`pressed:boolean`) animates under the token, and its MATT actions drive a second tile, e.g. a portcullis or gate that reads well top-down (`open:boolean`), or the chest. A wall lever (`pulled:boolean`, click trigger) is the click variant.
