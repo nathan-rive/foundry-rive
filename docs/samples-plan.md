@@ -88,6 +88,7 @@ Not now:
 ## Build steps
 
 1. **Samples folder:** add `samples/` to the module with the chosen `.riv` files (signed builds of the `samples_src/` projects), and add `samples` to the release zip.
+   - *2026-10-17:* done for the six new samples (clock, brazier, sign, chest, mechanisms, door), with a README and the font's licence; `tests/samples.test.mjs` checks the files and the zip step. The brazier is a signed, still watermarked `--publish` build; the others have no scripts and are plain builds. The older samples (trap, ritual circle, rat swarm, token, scroll) aren't in yet.
    - Verified during the overlay spike: the server serves `.riv` from module folders (status 200), so the samples ship as plain `.riv` files.
 2. **Pack sources and build:**
    - Keep pack contents as JSON in the repo (`packs-src/<pack>/*.json`), so they're reviewable and diffable.
