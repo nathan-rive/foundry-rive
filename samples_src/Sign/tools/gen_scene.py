@@ -22,6 +22,7 @@ VM, P_TEXT, P_COLOR, P_TEXT_COLOR, P_SWING, VM_INST = "0:40", "0:41", "0:42", "0
 FONT = "0:30"
 KEY_ROT, KEY_OPACITY, KEY_X, KEY_Y = 15, 18, 13, 14
 KEY_VX, KEY_VY = 24, 25
+KEY_SY = 17
 KEY_GRAD_START_X, KEY_GRAD_END_X = 42, 34
 TAU = math.tau
 
@@ -88,10 +89,10 @@ def text_box(name, offset, color, prop):
     dx, dy = offset
     return f'''<LayoutComponent clip="false" x="{dx}" y="{dy}" width="440" height="120" styleId="{style}" name="{name}" id="{ids()}">
     <LayoutComponentStyle layoutAlignmentType="center" layoutWidthScaleType="fill" layoutHeightScaleType="fill"{units(paddingLeft=22, paddingRight=22, paddingTop=8, paddingBottom=8)} name="{name} Style" id="{style}"/>
-    <Text sizingValue="fixed" width="396" height="104" alignValue="center" verticalAlignValue="middle"
+    <Text scaleY="0.6" originX="0.5" originY="0.5" sizingValue="fixed" width="396" height="104" alignValue="center" verticalAlignValue="middle"
           overflowValue="fitFontSize" wrapValue="noWrap" name="{name} Text">
         <LayoutParticipant layoutWidthScaleType="fill" layoutHeightScaleType="fill" name="Fill"/>
-        <TextStylePaint fontSize="76" fontAssetId="{FONT}" name="{name} Paint" id="{run_style}">
+        <TextStylePaint fontSize="64" fontAssetId="{FONT}" name="{name} Paint" id="{run_style}">
             <Fill name="Fill">{solid(color, prop)}</Fill>
         </TextStylePaint>
         <TextValueRun styleId="{run_style}" text="The Gilded Flagon" name="Run">{bind(P_TEXT, 268)}</TextValueRun>
@@ -100,58 +101,92 @@ def text_box(name, offset, color, prop):
 
 
 def sign():
+    """The sign seen from above: the beam, the chains and the board's top edge
+    face the camera; the board below them is foreshortened (squashed to 55% of
+    its height, pivoting at its top edge); its shadow lies on the ground."""
     sway, swing, idle = Anim("Sway", 300), Anim("Swing", 170, loop=False), Anim("Still", 1, loop=False)
-    root_style, hang_style, board_style, planks_style = ids(), ids(), ids(), ids()
-    board, hangers = ids(), ids()
+    root_style, hanging_style, beam_style, links_style, edge_style, board_style, planks_style = (ids() for _ in range(7))
+    shadow_style, shadow_box_style = ids(), ids()
+    board, links, shadow = ids(), ids(), ids()
 
-    rings = "\n".join(f'''        <Shape name="Ring">
-            <LayoutParticipant layoutWidthScaleType="hug" layoutHeightScaleType="hug" name="Hug"/>
-            <Ellipse width="22" height="22" name="Path"/>
-            <Stroke thickness="5" name="Iron">{solid("FF2B2724")}</Stroke>
-        </Shape>''' for _ in range(2))
+    chain_links = "\n".join(f"""            <Shape name="Chain">
+                <LayoutParticipant layoutWidthScaleType="hug" layoutHeightScaleType="hug" name="Hug"/>
+                <Rectangle width="5" height="12" cornerRadiusTL="2" name="Path"/>
+                <Fill name="Iron">{solid("FF2B2724")}</Fill>
+            </Shape>""" for _ in range(2))
 
     plank_colors = ["FF6E4829", "FF65411F", "FF6A4526"]
     planks = []
     for c in plank_colors:
-        s = ids()
-        planks.append(f'''                <LayoutComponent clip="false" width="420" height="40" styleId="{s}" name="Plank" id="{ids()}">
-                    <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fill" cornerRadiusTL="4" name="Plank Style" id="{s}"/>
-                    <Fill name="Wood">{solid(c)}</Fill>
-                    <Stroke thickness="1.5" name="Seam">{solid("FF3B2614")}</Stroke>
-                </LayoutComponent>''')
+        st = ids()
+        planks.append(f"""                    <LayoutComponent clip="false" width="420" height="40" styleId="{st}" name="Plank" id="{ids()}">
+                        <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fill" cornerRadiusTL="4" name="Plank Style" id="{st}"/>
+                        <Fill name="Wood">{solid(c)}</Fill>
+                        <Stroke thickness="1.5" name="Seam">{solid("FF3B2614")}</Stroke>
+                    </LayoutComponent>""")
 
-    # Gentle sway, and a damped swing when bumped. The swing layer comes later,
-    # so while it plays it overrides the sway.
-    sway.key(board, KEY_ROT, sampled(sway.duration, lambda t: 0.018 * math.sin(TAU * t), step=10))
-    swing.key(board, KEY_ROT, sampled(swing.duration, lambda t: 0.16 * math.exp(-t * 4.2) * math.sin(TAU * t * 3.4), step=4))
-    idle.key(hangers, KEY_OPACITY, [(0, 1)])
+    # Seen from above, a sign swinging towards and away from the camera shows
+    # more or less of its face: the sway and the swing animate the squash, and
+    # the shadow on the ground slides with it. The swing layer comes later, so
+    # while it plays it overrides the sway.
+    squash = 0.55
+    sway.key(shadow, KEY_X, sampled(sway.duration, lambda t: 5 * math.sin(TAU * t), step=10))
+    swing_fn = lambda t: math.exp(-t * 4.2) * math.sin(TAU * t * 3.4)
+    swing.key(board, KEY_Y, sampled(swing.duration, lambda t: 6 * swing_fn(t), step=4))
+    swing.key(shadow, KEY_X, sampled(swing.duration, lambda t: 26 * swing_fn(t), step=4))
+    idle.key(links, KEY_OPACITY, [(0, 1)])
 
-    content = f'''<LayoutComponent clip="false" width="480" height="200" styleId="{root_style}" name="Root" id="{ids()}">
-    <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fill" flexDirectionValue="column"{units(paddingLeft=10, paddingRight=10, paddingTop=4, paddingBottom=10)} name="Root Style" id="{root_style}"/>
-    <LayoutComponent clip="false" width="460" height="26" styleId="{hang_style}" name="Hangers" id="{hangers}">
-        <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fixed" flexDirectionValue="row"
-                              layoutAlignmentType="spaceBetweenEnd"{units(paddingLeft=56, paddingRight=56)} name="Hangers Style" id="{hang_style}"/>
-{rings}
-    </LayoutComponent>
-    <LayoutComponent clip="false" width="460" height="160" styleId="{board_style}" name="Board" id="{board}">
-        <LayoutComponentStyle layoutTypeValue="stack" layoutWidthScaleType="fill" layoutHeightScaleType="fill"{units(paddingLeft=10, paddingRight=10, paddingTop=10, paddingBottom=10)} cornerRadiusTL="12" name="Board Style" id="{board_style}"/>
-        <ComponentOrigin originX="0.5" originY="0" name="Hang Point"/>
-        <Fill name="Backing">{solid("FF3E2816")}</Fill>
-        <Stroke thickness="7" name="Painted Edge">{solid("FF8E2B23", P_COLOR)}</Stroke>
-{text_box("Lettering", (0, 0), "FFF0DDB0", P_TEXT_COLOR)}
-{text_box("Lettering Shadow", (3, 3), "AA1E120A", None)}
-            <LayoutComponent clip="false" width="440" height="140" styleId="{planks_style}" name="Planks" id="{ids()}">
+    content = f"""<LayoutComponent clip="false" width="480" height="190" styleId="{root_style}" name="Root" id="{ids()}">
+    <LayoutComponentStyle flexDirectionValue="column" layoutWidthScaleType="fill" layoutHeightScaleType="fill"{units(paddingLeft=6, paddingRight=6, paddingTop=6, paddingBottom=6)} name="Root Style" id="{root_style}"/>
+    <LayoutComponent clip="false" fractionalHeight="0.62" width="468" height="110" styleId="{hanging_style}" name="Hanging" id="{ids()}">
+        <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fill" flexDirectionValue="column" name="Hanging Style" id="{hanging_style}"/>
+        <LayoutComponent clip="false" width="468" height="18" styleId="{beam_style}" name="Beam" id="{ids()}">
+            <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fixed" cornerRadiusTL="5" name="Beam Style" id="{beam_style}"/>
+            <Fill name="Wood">{solid("FF4A2E1A")}</Fill>
+            <Stroke thickness="2" name="Edge">{solid("FF2A1A0E")}</Stroke>
+        </LayoutComponent>
+        <LayoutComponent clip="false" width="468" height="12" styleId="{links_style}" name="Chains" id="{links}">
+            <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fixed" flexDirectionValue="row"
+                                  layoutAlignmentType="spaceBetweenCenter"{units(paddingLeft=60, paddingRight=60)} name="Chains Style" id="{links_style}"/>
+{chain_links}
+        </LayoutComponent>
+        <LayoutComponent clip="false" width="468" height="10" styleId="{edge_style}" name="Top Edge" id="{ids()}">
+            <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fixed" cornerRadiusTL="3" name="Top Edge Style" id="{edge_style}"/>
+            <Fill name="Wood">{solid("FF8A5F38")}</Fill>
+            <Stroke thickness="2" name="Paint">{solid("FF8E2B23", P_COLOR)}</Stroke>
+        </LayoutComponent>
+        <LayoutComponent clip="false" width="468" height="70" styleId="{board_style}" name="Board" id="{board}">
+            <LayoutComponentStyle layoutTypeValue="stack" layoutWidthScaleType="fill" layoutHeightScaleType="fill"{units(paddingLeft=10, paddingRight=10, paddingTop=10, paddingBottom=10)} cornerRadiusTL="12" name="Board Style" id="{board_style}"/>
+            <Fill name="Backing">{solid("FF3E2816")}</Fill>
+            <Stroke thickness="7" name="Painted Edge">{solid("FF8E2B23", P_COLOR)}</Stroke>
+{indent(text_box("Lettering", (0, 0), "FFF0DDB0", P_TEXT_COLOR), 12)}
+{indent(text_box("Lettering Shadow", (3, 3), "AA1E120A", None), 12)}
+            <LayoutComponent clip="false" width="448" height="118" styleId="{planks_style}" name="Planks" id="{ids()}">
                 <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fill" flexDirectionValue="column"{units(gapVertical=4)} name="Planks Style" id="{planks_style}"/>
 {chr(10).join(planks)}
             </LayoutComponent>
+        </LayoutComponent>
     </LayoutComponent>
-</LayoutComponent>'''
+    <LayoutComponent clip="false" fractionalHeight="0.38" width="468" height="68" styleId="{shadow_style}" name="Ground Shadow" id="{shadow}">
+        <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fill" {units(marginTop=-40, paddingLeft=22, paddingRight=0)} name="Ground Shadow Style" id="{shadow_style}"/>
+        <LayoutComponent clip="false" width="448" height="80" styleId="{shadow_box_style}" name="Shadow" id="{ids()}">
+            <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fill" cornerRadiusTL="14" name="Shadow Style" id="{shadow_box_style}"/>
+            <Fill name="Shade">{solid("48000000")}</Fill>
+        </LayoutComponent>
+    </LayoutComponent>
+</LayoutComponent>"""
     return content, [sway], (idle, swing)
 
 
+def indent(text, n):
+    return "\n".join(" " * n + line for line in text.splitlines())
+
+
 def banner():
+    """The banner seen from above: the pole faces the camera, the cloth hanging
+    below it is foreshortened to half its height, and its shadow lies on the ground."""
     wave = Anim("Wave", 180)
-    cloth, folds, grad, emblem, label = ids(), ids(), ids(), ids(), ids()
+    folds, grad, emblem, label = ids(), ids(), ids(), ids()
 
     # The cloth outline: (x, y, kind). Sides are smooth curves; the top hangs
     # from the bar and stays put; the further down, the more it ripples.
@@ -192,37 +227,46 @@ def banner():
     stop_xml = "".join(f'<GradientStop colorValue="{c}" position="{p}"/>' for p, c in stops)
     label_style = ids()
 
-    content = f'''<Node x="110" y="24" name="Pole">
+    content = f"""<Node x="110" y="22" name="Pole">
     <Shape x="-104" name="Knob"><Ellipse width="18" height="18" name="Path"/><Fill name="Fill">{solid("FFC9A44A")}</Fill></Shape>
     <Shape x="104" name="Knob"><Ellipse width="18" height="18" name="Path"/><Fill name="Fill">{solid("FFC9A44A")}</Fill></Shape>
-    <Shape name="Bar"><Rectangle width="204" height="12" cornerRadiusTL="6" name="Path"/><Fill name="Fill">{solid("FF4A2E1A")}</Fill></Shape>
+    <Shape y="-3" name="Bar Top"><Rectangle width="200" height="6" cornerRadiusTL="3" name="Path"/><Fill name="Fill">{solid("FF6E4A2C")}</Fill></Shape>
+    <Shape name="Bar"><Rectangle width="204" height="14" cornerRadiusTL="6" name="Path"/><Fill name="Fill">{solid("FF4A2E1A")}</Fill></Shape>
 </Node>
-<Text x="110" y="64" sizingValue="fixed" width="128" height="34" originX="0.5" originY="0.5" alignValue="center"
-      verticalAlignValue="middle" overflowValue="fitFontSize" wrapValue="noWrap" name="Label" id="{label}">
-    <TextStylePaint fontSize="26" fontAssetId="{FONT}" name="Label Paint" id="{label_style}">
-        <Fill name="Fill">{solid("FFF0DDB0", P_TEXT_COLOR)}</Fill>
-    </TextStylePaint>
-    <TextValueRun styleId="{label_style}" text="The Gilded Flagon" name="Run">{bind(P_TEXT, 268)}</TextValueRun>
-</Text>
-<Node x="110" y="170" name="Emblem" id="{emblem}">
-    <Shape name="Star">
-        <Star points="5" innerRadius="0.45" width="58" height="58" name="Path"/>
-        <Fill name="Fill">{solid("FFF0DDB0", P_TEXT_COLOR)}</Fill>
+<Node y="30" scaleY="0.5" name="Hanging">
+    <Text x="110" y="34" sizingValue="fixed" width="128" height="34" originX="0.5" originY="0.5" alignValue="center"
+          verticalAlignValue="middle" overflowValue="fitFontSize" wrapValue="noWrap" name="Label" id="{label}">
+        <TextStylePaint fontSize="26" fontAssetId="{FONT}" name="Label Paint" id="{label_style}">
+            <Fill name="Fill">{solid("FFF0DDB0", P_TEXT_COLOR)}</Fill>
+        </TextStylePaint>
+        <TextValueRun styleId="{label_style}" text="The Gilded Flagon" name="Run">{bind(P_TEXT, 268)}</TextValueRun>
+    </Text>
+    <Node x="110" y="140" name="Emblem" id="{emblem}">
+        <Shape name="Star">
+            <Star points="5" innerRadius="0.45" width="58" height="58" name="Path"/>
+            <Fill name="Fill">{solid("FFF0DDB0", P_TEXT_COLOR)}</Fill>
+        </Shape>
+        <Shape name="Ring">
+            <Ellipse width="86" height="86" name="Path"/>
+            <Stroke thickness="5" name="Stroke">{solid("FFF0DDB0", P_TEXT_COLOR)}</Stroke>
+        </Shape>
+    </Node>
+    <Shape x="110" y="0" name="Folds" id="{folds}">
+        {path("Folds")}
+        <Fill name="Fill"><LinearGradient startX="-90" startY="0" endX="90" endY="0" name="Folds" id="{grad}">{stop_xml}</LinearGradient></Fill>
     </Shape>
-    <Shape name="Ring">
-        <Ellipse width="86" height="86" name="Path"/>
-        <Stroke thickness="5" name="Stroke">{solid("FFF0DDB0", P_TEXT_COLOR)}</Stroke>
+    <Shape x="110" y="0" name="Cloth">
+        {path("Cloth")}
+        <Stroke thickness="5" name="Trim">{solid("FFC9A44A")}</Stroke>
+        <Fill name="Fill">{solid("FF8E2B23", P_COLOR)}</Fill>
     </Shape>
 </Node>
-<Shape x="110" y="30" name="Folds" id="{folds}">
-    {path("Folds")}
-    <Fill name="Fill"><LinearGradient startX="-90" startY="0" endX="90" endY="0" name="Folds" id="{grad}">{stop_xml}</LinearGradient></Fill>
-</Shape>
-<Shape x="110" y="30" name="Cloth" id="{cloth}">
-    {path("Cloth")}
-    <Stroke thickness="5" name="Trim">{solid("FFC9A44A")}</Stroke>
-    <Fill name="Fill">{solid("FF8E2B23", P_COLOR)}</Fill>
-</Shape>'''
+<Node x="16" y="58" scaleY="0.42" name="Ground Shadow">
+    <Shape x="110" y="0" name="Shadow">
+        {path("Shadow")}
+        <Fill name="Shade">{solid("40000000")}</Fill>
+    </Shape>
+</Node>"""
     return content, [wave], None
 
 
@@ -270,8 +314,8 @@ def artboard(name, width, height, at, build):
 
 def main():
     body = "\n\n".join([
-        artboard("Sign", 480, 200, (0, 0), sign),
-        artboard("Banner", 220, 380, (560, 0), banner),
+        artboard("Sign", 480, 190, (0, 0), sign),
+        artboard("Banner", 220, 240, (560, 0), banner),
         f'<FontAsset file="fonts/IMFellEnglish-Regular.ttf" name="IM Fell English" id="{FONT}"/>',
         f'''<ViewModel defaultInstanceId="{VM_INST}" name="Sign" id="{VM}">
     <ViewModelPropertyString name="text" id="{P_TEXT}"/>
