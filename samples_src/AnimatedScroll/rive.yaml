@@ -1,0 +1,8 @@
+name: AnimatedScroll
+main: Scroll Stage
+logs:
+  file: build/rive.log
+  problems: build/problems.log
+push:
+  projectId: 1904175
+  fileId: 2658047

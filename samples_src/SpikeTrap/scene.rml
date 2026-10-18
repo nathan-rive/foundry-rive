@@ -1,0 +1,224 @@
+<Rive version="1" kind="fragment">
+    <!--
+      Spike trap tile.
+
+      The artboard lays itself out: host it with the runtime's Layout fit so it is
+      resized (not scaled) to the tile, and the script regenerates cobbles and
+      spikes at a constant density for the new size.
+
+      Drive it through the SpikeTrap view model:
+        state        hidden | revealed | active   (persistent; transitions animate)
+        stoneSize    average cobble size in px    (density of cobbles)
+        spikeSpacing average spike spacing in px  (density of spikes)
+        seed         changes the random layout
+    -->
+    <Artboard defaultStateMachineId="0:7" viewModelId="0:40" viewModelInstanceId="0:41" clip="true" width="400" height="300" styleId="0:5" name="SpikeTrap" id="0:2">
+        <LayoutComponentStyle name="Artboard Style" id="0:5"/>
+
+        <LayoutComponent width="400" height="300" styleId="0:11" name="Trap Area" id="0:10">
+            <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fill" widthUnitsValue="auto" heightUnitsValue="auto" name="Trap Area Style" id="0:11"/>
+            <ScriptedLayout scriptAssetId="0:80" name="Trap" id="0:12">
+                <!-- keyed by the state machine's timelines -->
+                <ScriptInputNumber propertyValue="0" name="reveal" id="0:13"/>
+                <ScriptInputNumber propertyValue="0" name="collapse" id="0:14"/>
+                <!-- bound to the view model -->
+                <ScriptInputNumber propertyValue="28" name="stoneSize" id="0:15">
+                    <DataBindContext sourcePathIds="0:40-0:43" propertyKey="243" id="0:81"/>
+                </ScriptInputNumber>
+                <ScriptInputNumber propertyValue="22" name="spikeSpacing" id="0:16">
+                    <DataBindContext sourcePathIds="0:40-0:44" propertyKey="243" id="0:82"/>
+                </ScriptInputNumber>
+                <ScriptInputNumber propertyValue="1" name="seed" id="0:17">
+                    <DataBindContext sourcePathIds="0:40-0:45" propertyKey="243" id="0:83"/>
+                </ScriptInputNumber>
+            </ScriptedLayout>
+        </LayoutComponent>
+
+        <StateMachine name="Trap" id="0:7">
+            <StateMachineLayer name="Trap State" id="0:8">
+                <AnyState x="0" y="-200" id="0:84"/>
+                <ExitState x="1000" y="-200" id="0:85"/>
+                <!-- Start directly in whatever state is persisted: no animation on load. -->
+                <EntryState x="0" y="0" id="0:86">
+                    <StateTransition stateToId="0:32" id="0:87">
+                        <TransitionViewModelCondition opValue="equal" id="0:88">
+                            <TransitionPropertyViewModelComparator id="0:89">
+                                <BindablePropertyEnum id="0:90">
+                                    <DataBindContext sourcePathIds="0:40-0:42" propertyKey="637" id="0:91"/>
+                                </BindablePropertyEnum>
+                            </TransitionPropertyViewModelComparator>
+                            <TransitionValueEnumComparator value="0:73" id="0:92"/>
+                        </TransitionViewModelCondition>
+                    </StateTransition>
+                    <StateTransition stateToId="0:31" id="0:93">
+                        <TransitionViewModelCondition opValue="equal" id="0:94">
+                            <TransitionPropertyViewModelComparator id="0:95">
+                                <BindablePropertyEnum id="0:96">
+                                    <DataBindContext sourcePathIds="0:40-0:42" propertyKey="637" id="0:97"/>
+                                </BindablePropertyEnum>
+                            </TransitionPropertyViewModelComparator>
+                            <TransitionValueEnumComparator value="0:72" id="0:98"/>
+                        </TransitionViewModelCondition>
+                    </StateTransition>
+                    <StateTransition stateToId="0:30" id="0:99"/>
+                </EntryState>
+
+                <!-- Hidden: faint outlines -->
+                <AnimationState x="220" y="0" animationId="0:20" id="0:30">
+                    <StateTransition stateToId="0:31" duration="700" id="0:100">
+                        <TransitionViewModelCondition opValue="equal" id="0:101">
+                            <TransitionPropertyViewModelComparator id="0:102">
+                                <BindablePropertyEnum id="0:103">
+                                    <DataBindContext sourcePathIds="0:40-0:42" propertyKey="637" id="0:104"/>
+                                </BindablePropertyEnum>
+                            </TransitionPropertyViewModelComparator>
+                            <TransitionValueEnumComparator value="0:72" id="0:105"/>
+                        </TransitionViewModelCondition>
+                    </StateTransition>
+                    <StateTransition stateToId="0:33" duration="400" id="0:106">
+                        <TransitionViewModelCondition opValue="equal" id="0:107">
+                            <TransitionPropertyViewModelComparator id="0:108">
+                                <BindablePropertyEnum id="0:109">
+                                    <DataBindContext sourcePathIds="0:40-0:42" propertyKey="637" id="0:110"/>
+                                </BindablePropertyEnum>
+                            </TransitionPropertyViewModelComparator>
+                            <TransitionValueEnumComparator value="0:73" id="0:111"/>
+                        </TransitionViewModelCondition>
+                    </StateTransition>
+                </AnimationState>
+
+                <!-- Revealed: obvious trap patch -->
+                <AnimationState x="460" y="0" animationId="0:21" id="0:31">
+                    <StateTransition stateToId="0:30" duration="700" id="0:112">
+                        <TransitionViewModelCondition opValue="equal" id="0:113">
+                            <TransitionPropertyViewModelComparator id="0:114">
+                                <BindablePropertyEnum id="0:115">
+                                    <DataBindContext sourcePathIds="0:40-0:42" propertyKey="637" id="0:116"/>
+                                </BindablePropertyEnum>
+                            </TransitionPropertyViewModelComparator>
+                            <TransitionValueEnumComparator value="0:71" id="0:117"/>
+                        </TransitionViewModelCondition>
+                    </StateTransition>
+                    <StateTransition stateToId="0:33" id="0:118">
+                        <TransitionViewModelCondition opValue="equal" id="0:119">
+                            <TransitionPropertyViewModelComparator id="0:120">
+                                <BindablePropertyEnum id="0:121">
+                                    <DataBindContext sourcePathIds="0:40-0:42" propertyKey="637" id="0:122"/>
+                                </BindablePropertyEnum>
+                            </TransitionPropertyViewModelComparator>
+                            <TransitionValueEnumComparator value="0:73" id="0:123"/>
+                        </TransitionViewModelCondition>
+                    </StateTransition>
+                </AnimationState>
+
+                <!-- Collapse: stones fall away one by one -->
+                <AnimationState x="700" y="-120" animationId="0:23" reset="true" id="0:33">
+                    <StateTransition stateToId="0:32" enableExitTime="true" exitTimeIsPercetange="true" exitTime="100" id="0:124"/>
+                </AnimationState>
+
+                <!-- Active: open spiked pit -->
+                <AnimationState x="940" y="0" animationId="0:22" id="0:32">
+                    <StateTransition stateToId="0:34" id="0:125">
+                        <TransitionViewModelCondition opValue="notEqual" id="0:126">
+                            <TransitionPropertyViewModelComparator id="0:127">
+                                <BindablePropertyEnum id="0:128">
+                                    <DataBindContext sourcePathIds="0:40-0:42" propertyKey="637" id="0:129"/>
+                                </BindablePropertyEnum>
+                            </TransitionPropertyViewModelComparator>
+                            <TransitionValueEnumComparator value="0:73" id="0:130"/>
+                        </TransitionViewModelCondition>
+                    </StateTransition>
+                </AnimationState>
+
+                <!-- Reform: stones float back up into a floor, then on to Revealed (and Hidden if asked) -->
+                <AnimationState x="700" y="120" animationId="0:24" reset="true" id="0:34">
+                    <StateTransition stateToId="0:31" enableExitTime="true" exitTimeIsPercetange="true" exitTime="100" id="0:131"/>
+                </AnimationState>
+            </StateMachineLayer>
+        </StateMachine>
+
+        <LinearAnimation duration="1" loopValue="oneShot" name="Hidden" id="0:20">
+            <KeyedObject objectId="0:13" id="0:132">
+                <KeyedProperty propertyKey="243" id="0:133">
+                    <KeyFrameDouble value="0" frame="0" interpolationType="linear" id="0:134"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:14" id="0:135">
+                <KeyedProperty propertyKey="243" id="0:136">
+                    <KeyFrameDouble value="0" frame="0" interpolationType="linear" id="0:137"/>
+                </KeyedProperty>
+            </KeyedObject>
+        </LinearAnimation>
+        <LinearAnimation duration="1" loopValue="oneShot" name="Revealed" id="0:21">
+            <KeyedObject objectId="0:13" id="0:138">
+                <KeyedProperty propertyKey="243" id="0:139">
+                    <KeyFrameDouble value="1" frame="0" interpolationType="linear" id="0:140"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:14" id="0:141">
+                <KeyedProperty propertyKey="243" id="0:142">
+                    <KeyFrameDouble value="0" frame="0" interpolationType="linear" id="0:143"/>
+                </KeyedProperty>
+            </KeyedObject>
+        </LinearAnimation>
+        <LinearAnimation duration="1" loopValue="oneShot" name="Active" id="0:22">
+            <KeyedObject objectId="0:13" id="0:144">
+                <KeyedProperty propertyKey="243" id="0:145">
+                    <KeyFrameDouble value="1" frame="0" interpolationType="linear" id="0:146"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:14" id="0:147">
+                <KeyedProperty propertyKey="243" id="0:148">
+                    <KeyFrameDouble value="1" frame="0" interpolationType="linear" id="0:149"/>
+                </KeyedProperty>
+            </KeyedObject>
+        </LinearAnimation>
+        <LinearAnimation duration="150" loopValue="oneShot" name="Collapse" id="0:23">
+            <KeyedObject objectId="0:13" id="0:150">
+                <KeyedProperty propertyKey="243" id="0:151">
+                    <KeyFrameDouble value="1" frame="0" interpolationType="linear" id="0:152"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:14" id="0:153">
+                <KeyedProperty propertyKey="243" id="0:154">
+                    <KeyFrameDouble value="0" frame="0" interpolationType="linear" id="0:155"/>
+                    <KeyFrameDouble value="1" frame="150" interpolationType="linear" id="0:156"/>
+                </KeyedProperty>
+            </KeyedObject>
+        </LinearAnimation>
+        <LinearAnimation duration="150" loopValue="oneShot" name="Reform" id="0:24">
+            <KeyedObject objectId="0:13" id="0:157">
+                <KeyedProperty propertyKey="243" id="0:158">
+                    <KeyFrameDouble value="1" frame="0" interpolationType="linear" id="0:159"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:14" id="0:160">
+                <KeyedProperty propertyKey="243" id="0:161">
+                    <KeyFrameDouble value="1" frame="0" interpolationType="linear" id="0:162"/>
+                    <KeyFrameDouble value="0" frame="150" interpolationType="linear" id="0:163"/>
+                </KeyedProperty>
+            </KeyedObject>
+        </LinearAnimation>
+    </Artboard>
+
+    <DataEnumCustom name="TrapState" id="0:70">
+        <DataEnumValue key="hidden" value="Hidden" id="0:71"/>
+        <DataEnumValue key="revealed" value="Revealed" id="0:72"/>
+        <DataEnumValue key="active" value="Active" id="0:73"/>
+    </DataEnumCustom>
+
+    <ViewModel defaultInstanceId="0:41" name="SpikeTrap" id="0:40">
+        <ViewModelPropertyEnumCustom enumId="0:70" name="state" id="0:42"/>
+        <ViewModelPropertyNumber name="stoneSize" id="0:43"/>
+        <ViewModelPropertyNumber name="spikeSpacing" id="0:44"/>
+        <ViewModelPropertyNumber name="seed" id="0:45"/>
+        <ViewModelInstance exports="true" name="Default" id="0:41">
+            <ViewModelInstanceEnum propertyValue="0:71" viewModelPropertyId="0:42" id="0:164"/>
+            <ViewModelInstanceNumber propertyValue="28" viewModelPropertyId="0:43" id="0:165"/>
+            <ViewModelInstanceNumber propertyValue="22" viewModelPropertyId="0:44" id="0:166"/>
+            <ViewModelInstanceNumber propertyValue="1" viewModelPropertyId="0:45" id="0:167"/>
+        </ViewModelInstance>
+    </ViewModel>
+
+    <ScriptAsset file="trap.luau" name="trap" id="0:80" codeFileId="0:169"/>
+</Rive>

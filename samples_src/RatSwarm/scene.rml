@@ -1,0 +1,52 @@
+<Rive version="1" kind="fragment">
+    <!-- Rat swarm token. Transparent background; the swarm fills the whole artboard.
+         Resize the artboard (or lay it out at any size) and the script keeps a
+         constant number of rats per unit area. -->
+    <Artboard defaultStateMachineId="0:7" viewModelId="0:40" clip="true" width="300" height="300" styleId="0:5" name="RatSwarm" id="0:2">
+        <LayoutComponentStyle name="Artboard Style" id="0:5"/>
+
+        <LayoutComponent width="300" height="300" styleId="0:11" name="Swarm Layout" id="0:10">
+            <LayoutComponentStyle layoutWidthScaleType="fill" layoutHeightScaleType="fill"
+                widthUnitsValue="auto" heightUnitsValue="auto" name="Swarm Layout Style" id="0:11"/>
+            <ScriptedLayout scriptAssetId="0:80" name="Swarm" id="0:12">
+                <ScriptInputNumber propertyValue="24" name="hp" id="0:13">
+                    <DataBindContext sourcePathIds="0:40-0:42" propertyKey="243" id="0:81"/>
+                </ScriptInputNumber>
+                <ScriptInputNumber propertyValue="24" name="maxHp" id="0:14">
+                    <DataBindContext sourcePathIds="0:40-0:43" propertyKey="243" id="0:82"/>
+                </ScriptInputNumber>
+                <ScriptInputNumber propertyValue="1" name="ratScale" id="0:15">
+                    <DataBindContext sourcePathIds="0:40-0:44" propertyKey="243" id="0:83"/>
+                </ScriptInputNumber>
+            </ScriptedLayout>
+        </LayoutComponent>
+
+        <StateMachine name="State Machine 1" id="0:7">
+            <StateMachineLayer name="Layer 1" id="0:8">
+                <AnyState x="200" y="-120" id="0:84"/>
+                <ExitState x="400" y="-120" id="0:85"/>
+                <EntryState id="0:86">
+                    <StateTransition stateToId="0:20" id="0:87"/>
+                </EntryState>
+                <AnimationState x="200" animationId="0:6" id="0:20"/>
+            </StateMachineLayer>
+        </StateMachine>
+
+        <LinearAnimation duration="60" loopValue="loop" name="Idle" id="0:6"/>
+    </Artboard>
+
+    <!-- hp / maxHp drive the fraction of rats alive. ratScale (default 1) scales
+         rat size; density scales with it so coverage stays the same. -->
+    <ViewModel defaultInstanceId="0:41" name="Swarm" id="0:40">
+        <ViewModelPropertyNumber name="hp" id="0:42"/>
+        <ViewModelPropertyNumber name="maxHp" id="0:43"/>
+        <ViewModelPropertyNumber name="ratScale" id="0:44"/>
+        <ViewModelInstance exports="true" name="Instance" id="0:41">
+            <ViewModelInstanceNumber propertyValue="24" viewModelPropertyId="0:42" id="0:88"/>
+            <ViewModelInstanceNumber propertyValue="24" viewModelPropertyId="0:43" id="0:89"/>
+            <ViewModelInstanceNumber propertyValue="1" viewModelPropertyId="0:44" id="0:90"/>
+        </ViewModelInstance>
+    </ViewModel>
+
+    <ScriptAsset file="swarm.luau" name="swarm" id="0:80" codeFileId="0:92"/>
+</Rive>
