@@ -1,17 +1,19 @@
-"""Generates scene.rml for the Brazier sample: top-down fire in three artboards.
+"""Generates scene.rml for the Brazier sample: fire seen from above, in three artboards.
 
     py -I tools/gen_scene.py        (from the project folder)
 
-- Brazier (300x300): a round iron bowl of coals with a fire and its glow.
+- Brazier (300x300): an iron bowl of coals on three legs, seen from above at an
+  angle, with a fire standing up out of it and its glow on the floor.
 - Torch (160x160): a wall torch seen from above, the wall along the bottom edge.
 - Trough (400x100): a long fire trough laid out with flex boxes, for the Layout
   fit: a wider or taller tile shows a longer trough instead of a stretched one.
 
 All three share the view model Fire: lit (boolean), intensity (number, 0-1.5),
-color (the flame colour), flare (trigger). No scripts.
+color (the flame colour), flare (trigger).
 
-Each fire is a cluster of shapes: flame tongues around a hot core, sparks, and a
-glow. Every cluster gets its own random flicker (seeded, so the output is stable).
+The flames are drawn by a script, flame.luau (a ScriptedDrawable per fire):
+layered contours whose edges are pushed about by noise scrolling upward. The
+coals, the bowl and the glow are markup.
 """
 
 import math
@@ -26,13 +28,13 @@ VM, P_LIT, P_INTENSITY, P_COLOR, P_FLARE, VM_INST = "0:40", "0:41", "0:42", "0:4
 C_LIT_NUM = "0:50"     # boolean -> number
 C_LEVEL = "0:51"       # lit * clamp(intensity, 0, 1.5)
 C_FIRE_OPACITY = "0:53"
-C_FIRE_SCALE = "0:54"
 C_GLOW_OPACITY = "0:55"
 C_COAL_HEAT = "0:56"
+SCRIPT = "0:80"         # flame.luau
 # One group (and one interpolator) per kind of bind.
 GROUPS = {
+    "level": ("0:64", "0:74", None),
     "opacity": ("0:60", "0:70", C_FIRE_OPACITY),
-    "scale": ("0:61", "0:71", C_FIRE_SCALE),
     "glow": ("0:62", "0:72", C_GLOW_OPACITY),
     "coals": ("0:63", "0:73", C_COAL_HEAT),
 }
@@ -108,19 +110,17 @@ class Artboard:
     """The animations an artboard's fires add to, shared by every cluster in it."""
 
     def __init__(self):
-        self.flicker = [Anim("Flicker A", 47), Anim("Flicker B", 61), Anim("Flicker C", 73)]
         self.pulse = Anim("Pulse", 89)
-        self.sparks = Anim("Sparks", 100)
         self.idle = Anim("Idle", 1, loop=False)
         self.flare = Anim("Flare", 42, loop=False)
 
     def anims(self):
-        return [*self.flicker, self.pulse, self.sparks, self.idle, self.flare]
+        return [self.pulse, self.idle, self.flare]
 
     def state_machine(self):
         sm_id = ids()
         layers = []
-        for anim in [*self.flicker, self.pulse, self.sparks]:
+        for anim in [self.pulse]:
             state = ids()
             layers.append(f'''        <StateMachineLayer name="{anim.name}" id="{ids()}">
             <EntryState x="-200" y="0"><StateTransition stateToId="{state}"/></EntryState>
@@ -149,106 +149,69 @@ class Artboard:
         return sm_id, f'<StateMachine name="Fire" id="{sm_id}">\n' + "\n".join(layers) + "\n</StateMachine>"
 
 
-def cluster(ab, rng, x, y, scale, glow=300):
-    """One fire, centred on (x, y), drawn at `scale` (1 = a fire about 140px across)."""
-    fire, flare = ids(), ids()
-    parts = []
-
-    # Sparks: drawn on top, rising outwards and fading, at staggered times.
-    for i in range(5):
-        spark = ids()
-        angle = rng.uniform(0, TAU)
-        start = rng.randint(0, 99)
-        rise = rng.randint(36, 52)
-        dist = rng.uniform(55, 85)
-        parts.append(f'''<Node rotation="{angle:.4f}" name="Spark Path">
-    <Shape name="Spark" id="{spark}" opacity="0">
-        <Ellipse width="{rng.uniform(4, 7):.1f}" height="{rng.uniform(4, 7):.1f}" name="Path"/>
-        <Fill blendModeValue="screen" name="Fill"><SolidColor colorValue="FFFFE2A0" name="Color"/></Fill>
-    </Shape>
-</Node>''')
-        # Keyframes over a 100-frame loop, wrapping around the end.
-        ys, ops = [], []
-        for f in range(0, 101, 4):
-            t = ((f - start) % 100) / rise
-            if t <= 1:
-                ys.append((f, -dist * t))
-                ops.append((f, math.sin(math.pi * t) * 0.95))
-            else:
-                ys.append((f, 0.0))
-                ops.append((f, 0.0))
-        ab.sparks.key(spark, KEY_Y, ys)
-        ab.sparks.key(spark, KEY_OPACITY, ops)
-
-    # The hot core: white, warm white, then the flame colour.
-    core = ids()
-    parts.append(f'''<Shape name="Core White">
-    <Ellipse width="20" height="20" name="Path"/>
-    <Fill blendModeValue="screen" name="Fill"><SolidColor colorValue="FFFFF8E8" name="Color"/></Fill>
-</Shape>
-<Shape name="Core Warm" opacity="0.9">
-    <Ellipse width="40" height="40" name="Path"/>
-    <Fill blendModeValue="screen" name="Fill"><SolidColor colorValue="FFFFE2A0" name="Color"/></Fill>
-</Shape>
-<Shape name="Core" id="{core}">
-    <Ellipse width="66" height="66" name="Path"/>
-    <Fill blendModeValue="screen" name="Fill">{color_paint("FFFF7A1A")}</Fill>
-</Shape>''')
-    ab.pulse.key(core, KEY_SX, jitter_loop(rng, ab.pulse.duration, 0.9, 1.1, (8, 14)))
-    ab.pulse.key(core, KEY_SY, jitter_loop(rng, ab.pulse.duration, 0.9, 1.1, (8, 14)))
-
-    # Flame tongues, radiating from the core; each one flickers on one of three loops.
-    count = 7
-    for i in range(count):
-        tongue = ids()
-        base = i * TAU / count + rng.uniform(-0.25, 0.25)
-        length = rng.uniform(56, 74)
-        width = rng.uniform(22, 30)
-        parts.append(f'''<Node rotation="{base:.4f}" name="Tongue" id="{tongue}">
-    <Shape y="{-length * 0.38:.1f}" name="Flame" opacity="0.85">
-        <Ellipse width="{width:.1f}" height="{length:.1f}" name="Path"/>
-        <Fill blendModeValue="screen" name="Fill">{color_paint("FFFF7A1A")}</Fill>
-    </Shape>
-</Node>''')
-        anim = ab.flicker[i % 3]
-        anim.key(tongue, KEY_SY, jitter_loop(rng, anim.duration, 0.65, 1.3))
-        anim.key(tongue, KEY_SX, jitter_loop(rng, anim.duration, 0.8, 1.15))
-        anim.key(tongue, KEY_ROT, [(f, base + v) for f, v in jitter_loop(rng, anim.duration, -0.14, 0.14)])
-
+def cluster(ab, rng, x, y, size, glow=300, squash=0.6):
+    """One fire with its base at (x, y): the scripted flame standing up from it,
+    a hot spot on the coals and a glow on the floor (both squashed, as the floor
+    is seen at an angle). `size` is the flame's width at intensity 1."""
+    glow_id, flare = ids(), ids()
+    seed = rng.uniform(0, 100)
+    ab.pulse.key(glow_id, KEY_SX, jitter_loop(rng, ab.pulse.duration, 0.94, 1.04, (6, 12)))
+    ab.pulse.key(glow_id, KEY_SY, [(f, v) for f, v in ab.pulse.keys[glow_id][KEY_SX]])
     ab.idle.key(flare, KEY_SX, [(0, 1)])
     ab.idle.key(flare, KEY_SY, [(0, 1)])
     for k in (KEY_SX, KEY_SY):
-        ab.flare.key(flare, k, [(0, 1), (7, 1.6), (16, 1.45), (42, 1)])
+        ab.flare.key(flare, k, [(0, 1), (7, 1.35), (16, 1.25), (42, 1)])
+    hot = size * 0.9
 
-    # The glow on the floor around the fire: under the fire, its own opacity bind.
-    glow_id = ids()
-    ab.pulse.key(glow_id, KEY_SX, jitter_loop(rng, ab.pulse.duration, 0.94, 1.04, (6, 12)))
-    ab.pulse.key(glow_id, KEY_SY, [(f, v) for f, v in ab.pulse.keys[glow_id][KEY_SX]])
-    g_opacity, g_scale = GROUPS["opacity"][0], GROUPS["scale"][0]
-    inner = "\n".join("            " + line for p in parts for line in p.splitlines())
-    return f'''<Node x="{x}" y="{y}" scaleX="{scale}" scaleY="{scale}" name="Fire Cluster">
-    <Node name="Fire" id="{fire}">
-        {bind(P_LIT, KEY_OPACITY, g_opacity)}
-        {bind(P_LIT, KEY_SX, g_scale)}
-        {bind(P_LIT, KEY_SY, g_scale)}
+    def radial(name, width, group):
+        return f'''<Shape name="{name}"{' id="' + glow_id + '"' if name == "Glow" else ""}>
+                {bind(P_LIT, KEY_OPACITY, GROUPS[group][0])}
+                <Ellipse width="{width:.1f}" height="{width:.1f}" name="Path"/>
+                <Fill blendModeValue="screen" name="Fill">
+                    <RadialGradient startX="0" startY="0" endX="{width / 2:.1f}" endY="0" name="Gradient">
+                        <GradientStop colorValue="FFFF7A1A" position="0">{bind(P_COLOR, KEY_STOP_COLOR)}</GradientStop>
+                        <GradientStop colorValue="00000000" position="1"/>
+                    </RadialGradient>
+                </Fill>
+            </Shape>'''
+
+    return f'''<Node x="{x}" y="{y}" name="Fire Cluster">
+    <ScriptedDrawable scriptAssetId="{SCRIPT}" name="Flame">
+        <ScriptInputNumber propertyValue="1" name="level">{bind(P_LIT, 243, GROUPS["level"][0])}</ScriptInputNumber>
+        <ScriptInputColor propertyValue="FFFF7A1A" name="color">{bind(P_COLOR, 836)}</ScriptInputColor>
+        <ScriptInputTrigger name="flare">{bind(P_FLARE, 870)}</ScriptInputTrigger>
+        <ScriptInputNumber propertyValue="{size}" name="size"/>
+        <ScriptInputNumber propertyValue="{seed:.2f}" name="seed"/>
+    </ScriptedDrawable>
+    <Node scaleY="{squash}" name="Floor Light">
         <Node name="Flare" id="{flare}">
-{inner}
+            {radial("Hot Spot", hot, "opacity")}
+            {radial("Glow", glow, "glow")}
         </Node>
     </Node>
-    <Shape name="Glow" id="{glow_id}">
-        {bind(P_LIT, KEY_OPACITY, GROUPS["glow"][0])}
-        <Ellipse width="{glow}" height="{glow}" name="Path"/>
-        <Fill blendModeValue="screen" name="Fill">
-            <RadialGradient startX="0" startY="0" endX="{glow / 2}" endY="0" name="Gradient">
-                <GradientStop colorValue="FFFF7A1A" position="0">{bind(P_COLOR, KEY_STOP_COLOR)}</GradientStop>
-                <GradientStop colorValue="00000000" position="1"/>
-            </RadialGradient>
-        </Fill>
-    </Shape>
 </Node>'''
 
 
-def coals(rng, x, y, radius, count, size=(13, 24)):
+def arc(cx, cy, rx, ry, a0, a1, steps=24):
+    """Points along an ellipse from angle a0 to a1 (radians, 0 = right, pi/2 = bottom)."""
+    return [(cx + rx * math.cos(a0 + (a1 - a0) * i / steps), cy + ry * math.sin(a0 + (a1 - a0) * i / steps))
+            for i in range(steps + 1)]
+
+
+def points(pts, closed=False):
+    verts = "".join(f'<StraightVertex x="{px:.2f}" y="{py:.2f}" name="V"/>' for px, py in pts)
+    return f'<PointsPath isClosed="{str(closed).lower()}" isClockwise="true" name="Path">{verts}</PointsPath>'
+
+
+def iron(color, width):
+    return f'<Stroke thickness="{width}" cap="round" name="Iron"><SolidColor colorValue="{color}" name="Color"/></Stroke>'
+
+
+def fill(color):
+    return f'<Fill name="Fill"><SolidColor colorValue="{color}" name="Color"/></Fill>'
+
+
+def coals(rng, x, y, radius, count, size=(13, 24), squash=1.0):
     """A bed of coals: dark lumps, with a hot copy on top whose opacity follows the fire."""
     lumps = []
     for _ in range(count):
@@ -269,7 +232,7 @@ def coals(rng, x, y, radius, count, size=(13, 24)):
     hot = layer("Hot Coals", ["FFC2491C", "FFE0702A", "FFA93514"])
     hot = hot.replace('<Node name="Hot Coals">', f'<Node name="Hot Coals">\n        {bind(P_LIT, KEY_OPACITY, GROUPS["coals"][0])}', 1)
     dark = layer("Coals", ["FF2E2420", "FF3A2C25", "FF241C19"])
-    return f'<Node x="{x}" y="{y}" name="Coal Bed">\n{hot}\n{dark}\n</Node>'
+    return f'<Node x="{x}" y="{y}" scaleY="{squash}" name="Coal Bed">\n{hot}\n{dark}\n</Node>'
 
 
 def artboard_xml(name, width, height, content_fn, at=(0, 0), extra_style=""):
@@ -288,57 +251,46 @@ def artboard_xml(name, width, height, content_fn, at=(0, 0), extra_style=""):
 
 
 def brazier(ab):
+    """An iron bowl on three legs, seen from above at an angle: the rim is an
+    ellipse, the bowl's side shows below it, and the fire stands up out of it.
+    The rim's front edge is drawn over the fire's base, its back edge behind."""
     rng = random.Random(11)
+    cx, cy, rx, ry = 150, 186, 92, 42
+    legs = "\n".join(f'''<Shape name="Leg">{points([(x0, y0), (x1, y1)])}{iron("FF241F1B", 7)}</Shape>
+<Shape x="{x1}" y="{y1 + 2}" name="Foot"><Ellipse width="14" height="6" name="Path"/>{fill("FF241F1B")}</Shape>'''
+                      for x0, y0, x1, y1 in [(150, 250, 150, 284), (82, 226, 70, 266), (218, 226, 230, 266)])
+    side = f'''<LinearGradient startX="0" startY="{cy}" endX="0" endY="{cy + 66}" name="Gradient"><GradientStop colorValue="FF3E352E" position="0"/><GradientStop colorValue="FF1C1815" position="1"/></LinearGradient>'''
     return "\n".join([
-        cluster(ab, rng, 150, 150, 1.0, glow=300),
-        '''<Node x="150" y="150" name="Bowl">
-    <Shape name="Rim Highlight">
-        <Ellipse width="160" height="160" name="Path"/>
-        <Stroke thickness="2" name="Stroke"><SolidColor colorValue="FF75665A" name="Color"/></Stroke>
-    </Shape>
-    <Shape name="Rim">
-        <Ellipse width="150" height="150" name="Path"/>
-        <Stroke thickness="14" name="Stroke"><SolidColor colorValue="FF2F2925" name="Color"/></Stroke>
-    </Shape>
-</Node>''',
-        coals(rng, 150, 150, 52, 22),
-        '''<Node x="150" y="150" name="Bowl Base">
-    <Shape name="Inside">
-        <Ellipse width="146" height="146" name="Path"/>
-        <Fill name="Fill"><SolidColor colorValue="FF151210" name="Color"/></Fill>
-    </Shape>
-    <Shape name="Shadow">
-        <Ellipse width="184" height="184" name="Path"/>
-        <Fill name="Fill"><SolidColor colorValue="55000000" name="Color"/></Fill>
-    </Shape>
-</Node>''',
+        f'<Shape name="Rim Front Shine">{points(arc(cx, cy + 3, rx - 4, ry - 1, 0.35, math.pi - 0.35))}{iron("FF6E5F52", 2)}</Shape>',
+        f'<Shape name="Rim Front">{points(arc(cx, cy, rx, ry, -0.05, math.pi + 0.05))}{iron("FF2F2925", 12)}</Shape>',
+        cluster(ab, rng, cx, cy - 4, 112, glow=330, squash=0.55),
+        f'<Shape name="Rim Back">{points(arc(cx, cy, rx, ry, math.pi, 2 * math.pi))}{iron("FF3A322C", 12)}</Shape>',
+        coals(rng, cx, cy, 72, 26, squash=0.46),
+        f'<Shape x="{cx}" y="{cy}" name="Inside"><Ellipse width="{2 * rx}" height="{2 * ry}" name="Path"/>{fill("FF151210")}</Shape>',
+        f'<Shape name="Bowl Side">{points(arc(cx, cy, rx, 66, 0, math.pi), True)}<Fill name="Fill">{side}</Fill></Shape>',
+        legs,
+        f'<Shape x="164" y="278" name="Shadow"><Ellipse width="220" height="56" name="Path"/>{fill("50000000")}</Shape>',
     ])
 
 
 def torch(ab):
-    """A torch in a wall bracket, seen from above: the wall is the bottom edge."""
+    """A torch in a wall bracket, seen from above at an angle: the wall is the
+    bottom edge, the arm reaches out from it, and the flame stands up from the cup."""
     rng = random.Random(23)
+    cx, cy = 80, 98
     return "\n".join([
-        cluster(ab, rng, 80, 70, 0.42, glow=330),
-        '''<Node x="80" y="70" name="Torch Head">
-    <Shape name="Cup Rim">
-        <Ellipse width="40" height="40" name="Path"/>
-        <Stroke thickness="5" name="Stroke"><SolidColor colorValue="FF3A322C" name="Color"/></Stroke>
-    </Shape>
-    <Shape name="Pitch">
-        <Ellipse width="34" height="34" name="Path"/>
-        <Fill name="Fill"><SolidColor colorValue="FF1A1411" name="Color"/></Fill>
-    </Shape>
-</Node>''',
-        '''<Shape x="80" y="117" name="Arm">
-    <Rectangle width="10" height="62" name="Path"/>
-    <Fill name="Fill"><SolidColor colorValue="FF2F2925" name="Color"/></Fill>
-</Shape>
-<Shape x="80" y="152" name="Wall Plate">
-    <Rectangle width="54" height="14" cornerRadiusTL="3" cornerRadiusTR="3" cornerRadiusBL="0" cornerRadiusBR="0" name="Path"/>
-    <Fill name="Fill"><SolidColor colorValue="FF3A322C" name="Color"/></Fill>
+        f'<Shape name="Cup Rim Front">{points(arc(cx, cy, 18, 7, 0, math.pi))}{iron("FF3A322C", 4)}</Shape>',
+        cluster(ab, rng, cx, cy - 2, 40, glow=300, squash=0.6),
+        f'<Shape name="Cup Rim Back">{points(arc(cx, cy, 18, 7, math.pi, 2 * math.pi))}{iron("FF4A4038", 4)}</Shape>',
+        f'<Shape x="{cx}" y="{cy}" name="Pitch"><Ellipse width="34" height="13" name="Path"/>{fill("FF1A1411")}</Shape>',
+        f'<Shape name="Cup">{points(arc(cx, cy, 18, 18, 0, math.pi), True)}{fill("FF2A241F")}</Shape>',
+        f'<Shape x="{cx}" y="128" name="Arm"><Rectangle width="9" height="46" name="Path"/>{fill("FF2F2925")}</Shape>',
+        f'''<Shape x="{cx}" y="152" name="Wall Plate">
+    <Rectangle width="54" height="14" cornerRadiusTL="3" name="Path"/>
+    {fill("FF3A322C")}
     <Stroke thickness="2" name="Stroke"><SolidColor colorValue="FF1A1512" name="Color"/></Stroke>
 </Shape>''',
+        f'<Shape x="{cx + 8}" y="136" name="Arm Shadow"><Rectangle width="10" height="30" name="Path"/>{fill("40000000")}</Shape>',
     ])
 
 
@@ -351,8 +303,8 @@ def trough(ab):
         slots.append(f'''            <LayoutComponent clip="false" width="54" height="64" styleId="{slot_style}" name="Fire Slot {i + 1}" id="{ids()}">
                 <LayoutComponentStyle layoutWidthScaleType="fixed" layoutHeightScaleType="fixed" name="Slot Style" id="{slot_style}"/>
                 <Node name="Slot Art">
-{indent(cluster(ab, rng, 27, 32, 0.42, glow=330), 20)}
-{indent(coals(rng, 27, 32, 24, 9, size=(10, 18)), 20)}
+{indent(cluster(ab, rng, 27, 46, 40, glow=220, squash=0.6), 20)}
+{indent(coals(rng, 27, 46, 24, 9, size=(10, 18), squash=0.55), 20)}
                 </Node>
             </LayoutComponent>''')
     root_style, bed_style, coal_style = ids(), ids(), ids()
@@ -381,12 +333,12 @@ def indent(text, n):
 
 def converters():
     def group(gid, interp, final):
+        last = f'\n    <DataConverterGroupItem converterId="{final}"/>' if final else ""
         return f'''<DataConverterInterpolator interpolationType="linear" duration="0.6" name="Ease" id="{interp}"/>
 <DataConverterGroup name="Lit and intensity" id="{gid}">
     <DataConverterGroupItem converterId="{C_LIT_NUM}"/>
     <DataConverterGroupItem converterId="{C_LEVEL}"/>
-    <DataConverterGroupItem converterId="{interp}"/>
-    <DataConverterGroupItem converterId="{final}"/>
+    <DataConverterGroupItem converterId="{interp}"/>{last}
 </DataConverterGroup>'''
 
     groups = "\n".join(group(*g) for g in GROUPS.values())
@@ -413,16 +365,6 @@ def converters():
     <FormulaTokenInput/>
     <FormulaTokenOperation operationType="2"/>
     <FormulaTokenValue operationValue="4"/>
-    <FormulaTokenParenthesisClose/>
-</DataConverterFormula>
-<!-- 0.35 + (0.65 * input) -->
-<DataConverterFormula name="Fire scale" id="{C_FIRE_SCALE}">
-    <FormulaTokenValue operationValue="0.35"/>
-    <FormulaTokenOperation operationType="0"/>
-    <FormulaTokenParenthesisOpen/>
-    <FormulaTokenValue operationValue="0.65"/>
-    <FormulaTokenOperation operationType="2"/>
-    <FormulaTokenInput/>
     <FormulaTokenParenthesisClose/>
 </DataConverterFormula>
 <!-- min(1, input) * 0.5: the glow's gradient starts at full colour -->
@@ -470,7 +412,7 @@ def main():
         <ViewModelInstanceTrigger viewModelPropertyId="{P_FLARE}"/>
     </ViewModelInstance>
 </ViewModel>'''
-    body = "\n\n".join([*artboards, converters(), vm])
+    body = "\n\n".join([*artboards, converters(), f'<ScriptAsset file="flame.luau" name="flame" id="{SCRIPT}"/>', vm])
     header = "<!-- Generated by tools/gen_scene.py; edit that, not this. -->\n"
     OUT.write_text(f'<Rive version="1" kind="fragment">\n{header}{body}\n</Rive>\n', encoding="utf-8", newline="\n")
     print(f"wrote {OUT} ({OUT.stat().st_size} bytes)")
